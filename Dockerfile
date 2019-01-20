@@ -10,18 +10,12 @@ RUN apt-get update && apt-get install -y \
            && rm -r /var/lib/apt/lists/*
 
 RUN pip3 install virtualenv
-#ENV APACHE_RUN_USER www-data
-#ENV APACHE_RUN_GROUP www-data
+ENV APP_NAME myfirstapp
+RUN mkdir -p /var/www/$APP_NAME
 ENV APACHE_CONFDIR /etc/apache2
 ENV APACHE_ENVVARS $APACHE_CONFDIR/envvars
 RUN set -eux; \
 	\
-# generically convert lines like
-#   export APACHE_RUN_USER=www-data
-# into
-#   : ${APACHE_RUN_USER:=www-data}
-#   export APACHE_RUN_USER
-# so that they can be overridden at runtime ("-e APACHE_RUN_USER=...")
 	sed -ri 's/^export ([^=]+)=(.*)$/: ${\1:=\2}\nexport \1/' "$APACHE_ENVVARS"; \
 	\
 # setup directories and permissions
@@ -31,15 +25,14 @@ RUN set -eux; \
 		"$APACHE_RUN_DIR" \
 		"$APACHE_LOG_DIR" \
 		/var/www/html \
+		/var/www/$APP_NAME \
 	; do \
 		rm -rvf "$dir"; \
 		mkdir -p "$dir"; \
 		chown "$APACHE_RUN_USER:$APACHE_RUN_GROUP" "$dir"; \
-# allow running as an arbitrary user (https://github.com/docker-library/php/issues/743)
 		chmod 777 "$dir"; \
 	done; \
 	\
-# logs should go to stdout / stderr
 	ln -sfT /dev/stderr "$APACHE_LOG_DIR/error.log"; \
 	ln -sfT /dev/stdout "$APACHE_LOG_DIR/access.log"; \
 	ln -sfT /dev/stdout "$APACHE_LOG_DIR/other_vhosts_access.log"; \
@@ -47,8 +40,7 @@ RUN set -eux; \
 
 
 
-RUN mkdir -p /var/www/myfirstapp
-WORKDIR /var/www/myfirstapp
+WORKDIR /var/www/$APP_NAME
 COPY ./hello.conf /etc/apache2/sites-available/hello.conf
 COPY ./hello.py .
 COPY ./hello.wsgi .
